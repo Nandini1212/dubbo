@@ -41,6 +41,9 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import static org.apache.dubbo.common.constants.CommonConstants.ANYHOST_VALUE;
+import static org.apache.dubbo.common.constants.CommonConstants.ANY_VALUE;
+import static org.apache.dubbo.common.constants.CommonConstants.BROADCAST_CLUSTER;
+import static org.apache.dubbo.common.constants.CommonConstants.CLUSTER_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.TAG_KEY;
 import static org.apache.dubbo.common.constants.LoggerCodeConstants.CLUSTER_TAG_ROUTE_EMPTY;
 import static org.apache.dubbo.common.constants.LoggerCodeConstants.CLUSTER_TAG_ROUTE_INVALID;
@@ -105,6 +108,17 @@ public class TagStateRouter<T> extends AbstractStateRouter<T> implements Configu
             return invokers;
         }
 
+        String tag = StringUtils.isEmpty(invocation.getAttachment(TAG_KEY))
+                ? url.getParameter(TAG_KEY)
+                : invocation.getAttachment(TAG_KEY);
+        if (ANY_VALUE.equals(tag)
+                || (StringUtils.isEmpty(tag) && BROADCAST_CLUSTER.equals(url.getParameter(CLUSTER_KEY)))) {
+            if (needToPrintMessage) {
+                messageHolder.set("Skip tag routing. Reason: wildcard tag request or broadcast cluster without tag");
+            }
+            return invokers;
+        }
+
         // since the rule can be changed by config center, we should copy one to use.
         final TagRouterRule tagRouterRuleCopy = tagRouterRule;
         if (tagRouterRuleCopy == null || !tagRouterRuleCopy.isValid() || !tagRouterRuleCopy.isEnabled()) {
@@ -115,9 +129,6 @@ public class TagStateRouter<T> extends AbstractStateRouter<T> implements Configu
         }
 
         BitList<Invoker<T>> result = invokers;
-        String tag = StringUtils.isEmpty(invocation.getAttachment(TAG_KEY))
-                ? url.getParameter(TAG_KEY)
-                : invocation.getAttachment(TAG_KEY);
 
         // if we are requesting for a Provider with a specific tag
         if (StringUtils.isNotEmpty(tag)) {
@@ -208,7 +219,9 @@ public class TagStateRouter<T> extends AbstractStateRouter<T> implements Configu
         // Tag request
         if (!StringUtils.isEmpty(tag)) {
             result = filterInvoker(
-                    invokers, invoker -> tag.equals(invoker.getUrl().getParameter(TAG_KEY)));
+                    invokers,
+                    invoker ->
+                            ANY_VALUE.equals(tag) || tag.equals(invoker.getUrl().getParameter(TAG_KEY)));
             if (CollectionUtils.isEmpty(result) && !isForceUseTag(invocation)) {
                 result = filterInvoker(
                         invokers,
