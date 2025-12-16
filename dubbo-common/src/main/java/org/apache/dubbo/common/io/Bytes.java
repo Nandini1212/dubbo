@@ -784,11 +784,11 @@ public class Bytes {
      * @throws IOException
      */
     public static byte[] zip(byte[] bytes) throws IOException {
-        UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream();
-        try (DeflaterOutputStream os = new DeflaterOutputStream(bos)) {
+        try (UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream();
+                DeflaterOutputStream os = new DeflaterOutputStream(bos)) {
             os.write(bytes);
+            return bos.toByteArray();
         }
-        return bos.toByteArray();
     }
 
     /**
