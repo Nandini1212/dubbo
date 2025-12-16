@@ -787,7 +787,7 @@ public class Bytes {
         UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream();
         try (DeflaterOutputStream os = new DeflaterOutputStream(bos)) {
             os.write(bytes);
-        }finally {
+        } finally {
             bos.close();
         }
         return bos.toByteArray();
