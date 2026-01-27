@@ -133,6 +133,8 @@ class JavaConfigBeanTest {
                 ExistingServiceConfiguration.class,
                 ConditionalServiceConfiguration.class);
         try {
+            Assertions.assertFalse(context.containsBeanDefinition("conditionalDemoService"));
+
             Map<String, ServiceBean> serviceBeans = context.getBeansOfType(ServiceBean.class);
             Assertions.assertEquals(0, serviceBeans.size());
 
@@ -149,8 +151,14 @@ class JavaConfigBeanTest {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
                 ConditionalTestConfiguration.class, ConditionalServiceConfiguration.class);
         try {
+            Assertions.assertTrue(context.containsBeanDefinition("conditionalDemoService"));
+
             Map<String, ServiceBean> serviceBeans = context.getBeansOfType(ServiceBean.class);
             Assertions.assertEquals(1, serviceBeans.size());
+
+            Map<String, DemoService> demoServices = context.getBeansOfType(DemoService.class);
+            Assertions.assertEquals(1, demoServices.size());
+            Assertions.assertNotNull(demoServices.get("conditionalDemoService"));
         } finally {
             context.close();
         }
