@@ -685,7 +685,7 @@ public class ServiceAnnotationPostProcessor
         }
 
         Class<?>[] beanTypes = (Class<?>[]) conditionalAttrs.get("value");
-        if (beanTypes == null) {
+        if (beanTypes == null || beanTypes.length == 0) {
             return false;
         }
 
