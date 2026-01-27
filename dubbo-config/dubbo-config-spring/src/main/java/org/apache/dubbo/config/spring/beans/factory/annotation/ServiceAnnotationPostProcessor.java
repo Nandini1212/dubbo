@@ -618,7 +618,7 @@ public class ServiceAnnotationPostProcessor
             AnnotatedBeanDefinition refServiceBeanDefinition,
             Map<String, Object> attributes) {
 
-        if (shouldSkipDueToConditionalOnMissingBean(refServiceBeanDefinition)) {
+        if (shouldSkipDueToConditionalOnMissingBean(refServiceBeanName, refServiceBeanDefinition)) {
             if (logger.isDebugEnabled()) {
                 logger.debug("Skip registering ServiceBean for bean [" + refServiceBeanName
                         + "] due to @ConditionalOnMissingBean condition not satisfied");
@@ -670,7 +670,8 @@ public class ServiceAnnotationPostProcessor
         }
     }
 
-    private boolean shouldSkipDueToConditionalOnMissingBean(AnnotatedBeanDefinition beanDefinition) {
+    private boolean shouldSkipDueToConditionalOnMissingBean(
+            String refServiceBeanName, AnnotatedBeanDefinition beanDefinition) {
         MethodMetadata factoryMethod = SpringCompatUtils.getFactoryMethodMetadata(beanDefinition);
         if (factoryMethod == null) {
             return false;
@@ -689,7 +690,7 @@ public class ServiceAnnotationPostProcessor
         }
 
         for (Class<?> beanType : beanTypes) {
-            if (hasExistingBeanOfType(beanType)) {
+            if (hasExistingBeanOfType(beanType, refServiceBeanName)) {
                 return true;
             }
         }
@@ -697,12 +698,16 @@ public class ServiceAnnotationPostProcessor
         return false;
     }
 
-    private boolean hasExistingBeanOfType(Class<?> beanType) {
+    private boolean hasExistingBeanOfType(Class<?> beanType, String refServiceBeanName) {
         if (registry instanceof ConfigurableListableBeanFactory) {
             ConfigurableListableBeanFactory beanFactory = (ConfigurableListableBeanFactory) registry;
 
             String[] beanNames = beanFactory.getBeanNamesForType(beanType);
-            return beanNames.length > 0;
+            for (String beanName : beanNames) {
+                if (!beanName.equals(refServiceBeanName)) {
+                    return true;
+                }
+            }
         }
         return false;
     }

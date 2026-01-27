@@ -193,7 +193,7 @@ class JavaConfigBeanTest {
         }
     }
 
-    @EnableDubbo
+    @EnableDubbo(scanBasePackages = "")
     @Configuration
     static class ConditionalTestConfiguration {
 
