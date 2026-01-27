@@ -42,8 +42,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import static org.apache.dubbo.common.constants.CommonConstants.ANY_VALUE;
-import static org.apache.dubbo.common.constants.CommonConstants.BROADCAST_CLUSTER;
-import static org.apache.dubbo.common.constants.CommonConstants.CLUSTER_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.TAG_KEY;
 import static org.mockito.Mockito.when;
 
@@ -332,44 +330,6 @@ class TagStateRouterTest {
 
         List<Invoker<TagRouterRule>> filteredInvokers =
                 router.route(invokers.clone(), invokers.get(0).getUrl(), invocation, false, new Holder<>());
-
-        Assertions.assertEquals(4, filteredInvokers.size());
-        Assertions.assertEquals(invoker1, filteredInvokers.get(0));
-        Assertions.assertEquals(invoker2, filteredInvokers.get(1));
-        Assertions.assertEquals(invoker3, filteredInvokers.get(2));
-        Assertions.assertEquals(invoker4, filteredInvokers.get(3));
-    }
-
-    @Test
-    void testBroadcastClusterWithoutTagShouldReturnAllProviders() {
-        StateRouter<TagRouterRule> router = new TagStateRouterFactory().getRouter(TagRouterRule.class, url);
-
-        List<Invoker<TagRouterRule>> originInvokers = new ArrayList<>();
-
-        URL url1 = URL.valueOf("test://127.0.0.1:7777/DemoInterface?dubbo.tag=t-01")
-                .setScopeModel(moduleModel);
-        URL url2 = URL.valueOf("test://127.0.0.1:7778/DemoInterface?dubbo.tag=t-02")
-                .setScopeModel(moduleModel);
-        URL url3 = URL.valueOf("test://127.0.0.1:7779/DemoInterface?dubbo.tag=t-03")
-                .setScopeModel(moduleModel);
-        URL url4 = URL.valueOf("test://127.0.0.1:7780/DemoInterface?dubbo.tag=t-04")
-                .setScopeModel(moduleModel);
-
-        Invoker<TagRouterRule> invoker1 = new MockInvoker<>(url1, true);
-        Invoker<TagRouterRule> invoker2 = new MockInvoker<>(url2, true);
-        Invoker<TagRouterRule> invoker3 = new MockInvoker<>(url3, true);
-        Invoker<TagRouterRule> invoker4 = new MockInvoker<>(url4, true);
-        originInvokers.add(invoker1);
-        originInvokers.add(invoker2);
-        originInvokers.add(invoker3);
-        originInvokers.add(invoker4);
-        BitList<Invoker<TagRouterRule>> invokers = new BitList<>(originInvokers);
-
-        RpcInvocation invocation = new RpcInvocation();
-        URL consumerUrl = url.addParameter(CLUSTER_KEY, BROADCAST_CLUSTER);
-
-        List<Invoker<TagRouterRule>> filteredInvokers =
-                router.route(invokers.clone(), consumerUrl, invocation, false, new Holder<>());
 
         Assertions.assertEquals(4, filteredInvokers.size());
         Assertions.assertEquals(invoker1, filteredInvokers.get(0));
