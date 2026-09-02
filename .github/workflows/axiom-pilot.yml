@@ -1,0 +1,139 @@
+name: Axiom Pilot 1 (dubbo-common)
+
+# Manually triggered only, with an explicit commit SHA input -- never reacts to pull_request/push
+# events, so no external contributor can cause this workflow (or its secret, below) to run.
+# Selection of which SHA to evaluate happens outside this workflow, under a fixed, mechanical
+# eligibility rule decided in advance (see the Pilot 1 design doc); this workflow only executes
+# whatever SHA it is explicitly told to.
+#
+# Security boundary: this workflow is split into two jobs on purpose.
+#   - test-dubbo-common: checks out and builds/tests the (untrusted) selected commit. This job
+#     never references any secret anywhere in its YAML -- not job-level env, not step-level env,
+#     nothing. Arbitrary code at the selected commit (test code, Maven plugins, annotation
+#     processors) can therefore never observe a secret that was never present in its process
+#     environment to begin with.
+#   - axiom-analysis: never checks out the selected (untrusted) commit at all -- only this
+#     fork's own default branch (for the rules file we authored) plus the Surefire XML artifact
+#     the first job produced. Only this job references the private-Axiom-download secret.
+on:
+  workflow_dispatch:
+    inputs:
+      commit-sha:
+        description: "Exact upstream Dubbo commit SHA to evaluate (selected mechanically, before seeing any CI/test outcome)"
+        required: true
+      pr-number:
+        description: "Optional upstream PR number, for pilot record-keeping only -- not interpolated into any shell command"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  test-dubbo-common:
+    name: "Run dubbo-common tests (untrusted checkout -- no secrets in this job)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: "Check out the exact selected commit"
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit-sha }}
+          fetch-depth: 1
+
+      - name: "Set up JDK 21"
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # continue-on-error keeps this step from immediately failing the job, so the artifact
+      # upload below still runs on a real test failure -- the job's true conclusion is restored
+      # by the final step, after evidence has already been captured.
+      - name: "Run dubbo-common tests"
+        id: test
+        run: ./mvnw test -pl dubbo-common
+        continue-on-error: true
+
+      - name: "Record pilot metadata"
+        if: always()
+        run: |
+          mkdir -p pilot-metadata
+          printf '%s' "${{ inputs.commit-sha }}" > pilot-metadata/commit-sha.txt
+          printf '%s' "${{ inputs.pr-number }}" > pilot-metadata/pr-number.txt
+          printf '%s' "${{ steps.test.outcome }}" > pilot-metadata/test-outcome.txt
+          printf '%s' "${{ github.run_id }}" > pilot-metadata/run-id.txt
+
+      - name: "Upload Surefire XML and pilot metadata"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilot-test-evidence
+          path: |
+            dubbo-common/target/surefire-reports/*.xml
+            pilot-metadata/*.txt
+          if-no-files-found: warn
+
+      # Restores the job's real conclusion (red if the actual Dubbo tests failed) after evidence
+      # has already been uploaded -- continue-on-error above must not silently turn a real test
+      # failure into a green job.
+      - name: "Preserve the original test outcome"
+        if: always()
+        run: |
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "dubbo-common tests failed (expected/normal pilot data -- see pilot-test-evidence artifact)"
+            exit 1
+          fi
+
+  axiom-analysis:
+    name: "Axiom investigation (trusted -- never executes the tested commit's code)"
+    needs: test-dubbo-common
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Deliberately our own fork's default branch, never the untrusted commit-sha input --
+      # this only supplies the rules file we authored ourselves.
+      - name: "Check out this fork's own rules"
+        uses: actions/checkout@v4
+
+      - name: "Download test evidence"
+        uses: actions/download-artifact@v4
+        with:
+          name: pilot-test-evidence
+          path: evidence
+
+      - name: "Build the report-file list"
+        id: reports
+        run: |
+          {
+            echo "list<<AXIOM_REPORT_EOF"
+            find evidence -name "*.xml" -path "*surefire-reports*"
+            echo "AXIOM_REPORT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: "Investigate with Axiom"
+        id: axiom
+        uses: Nandini1212/axiom@v1.3.0
+        with:
+          rules-file: .axiom-pilot/rules.yaml
+          report-file: ${{ steps.reports.outputs.list }}
+          snapshot-output: axiom-pilot-snapshot.json
+          github-token: ${{ secrets.AXIOM_ACCESS_TOKEN }}
+
+      - name: "Upload Axiom snapshot"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: axiom-pilot-snapshot
+          path: axiom-pilot-snapshot.json
+          if-no-files-found: warn
+
+      - name: "Summary"
+        if: always()
+        run: |
+          echo "## Pilot 1 run summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Original dubbo-common test outcome: see the test-dubbo-common job's own conclusion (independent of this job)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Axiom investigation step outcome: ${{ steps.axiom.outcome }}" >> "$GITHUB_STEP_SUMMARY"
