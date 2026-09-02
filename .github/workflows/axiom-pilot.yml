@@ -13,8 +13,11 @@ name: Axiom Pilot 1 (dubbo-common)
 #     processors) can therefore never observe a secret that was never present in its process
 #     environment to begin with.
 #   - axiom-analysis: never checks out the selected (untrusted) commit at all -- only this
-#     fork's own default branch (for the rules file we authored) plus the Surefire XML artifact
-#     the first job produced. Only this job references the private-Axiom-download secret.
+#     fork's own default branch (for the rules file we authored), the private Axiom action
+#     itself (checked out explicitly with the PAT, since Nandini1212/dubbo is public and
+#     Nandini1212/axiom is private -- GitHub does not resolve a private `uses: owner/repo@ref`
+#     action reference from a public caller), and the Surefire XML artifact the first job
+#     produced. Only this job references the private-Axiom-download secret.
 on:
   workflow_dispatch:
     inputs:
@@ -114,13 +117,31 @@ jobs:
             echo "AXIOM_REPORT_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: "Investigate with Axiom"
+      # Nandini1212/dubbo is PUBLIC; Nandini1212/axiom is PRIVATE. GitHub does not resolve a
+      # private `uses: owner/repo@ref` action reference for a public calling repository -- there
+      # is no cross-repo "access" grant that makes that work in this direction. The documented,
+      # correct pattern instead: explicitly check out the private action's exact released tag
+      # using the PAT (this step only, trusted job only), then reference it as a local path.
+      # The token is never echoed and GitHub automatically masks any value sourced from
+      # `secrets.*` in logs regardless of which input it flows through.
+      - name: "Check out the private Axiom action"
+        uses: actions/checkout@v4
+        with:
+          repository: Nandini1212/axiom
+          ref: v1.3.0
+          token: ${{ secrets.AXIOM_ACCESS_TOKEN }}
+          path: .axiom-action
+
+      - name: "Investigate with Axiom (locally checked-out action)"
         id: axiom
-        uses: Nandini1212/axiom@v1.3.0
+        uses: ./.axiom-action
         with:
           rules-file: .axiom-pilot/rules.yaml
           report-file: ${{ steps.reports.outputs.list }}
           snapshot-output: axiom-pilot-snapshot.json
+          # Still required even for a local action reference: install-axiom.sh downloads the
+          # actual CLI release *asset* from Nandini1212/axiom's Releases, a separate private
+          # resource from the action.yml source just checked out above.
           github-token: ${{ secrets.AXIOM_ACCESS_TOKEN }}
 
       - name: "Upload Axiom snapshot"

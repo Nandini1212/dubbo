@@ -1,6 +1,5 @@
 rules:
   - id: null-pointer-application-bug
-    description: Common shape for a real application-code defect surfacing as an NPE
     priority: 100
     match:
       any:
@@ -9,34 +8,4 @@ rules:
           value: "NullPointerException"
     classification:
       category: APPLICATION_BUG
-      confidence: 0.7
-
-  - id: assertion-failure-application-bug
-    description: A failed assertion in a unit test most often indicates the code under test is wrong
-    priority: 90
-    match:
-      any:
-        - field: message
-          operator: contains
-          value: "AssertionError"
-        - field: message
-          operator: contains
-          value: "expected:"
-    classification:
-      category: APPLICATION_BUG
-      confidence: 0.6
-
-  - id: timeout-flaky-test
-    description: Timing-sensitive failures in CI are frequently transient rather than a real defect
-    priority: 80
-    match:
-      any:
-        - field: message
-          operator: contains
-          value: "timed out"
-        - field: message
-          operator: contains
-          value: "TimeoutException"
-    classification:
-      category: FLAKY_TEST
-      confidence: 0.5
+      confidence: 0.9
