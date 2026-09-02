@@ -1,11 +1,1 @@
-rules:
-  - id: null-pointer-application-bug
-    priority: 100
-    match:
-      any:
-        - field: message
-          operator: contains
-          value: "NullPointerException"
-    classification:
-      category: APPLICATION_BUG
-      confidence: 0.9
+rules: []
