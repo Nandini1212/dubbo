@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Nandini1212/axiom
-          ref: v1.3.1
+          ref: v1.3.2
           token: ${{ secrets.AXIOM_ACCESS_TOKEN }}
           path: .axiom-action
 
@@ -139,6 +139,11 @@ jobs:
         with:
           rules-file: .axiom-pilot/rules.yaml
           report-file: ${{ steps.reports.outputs.list }}
+          # This job never checks out inputs.commit-sha itself (see the security-boundary comment
+          # above), so action.yml's own github.sha-based default would resolve to this fork's own
+          # workflow commit instead of the actual tested commit -- passing it explicitly is the
+          # v1.3.2 fix for exactly that provenance defect.
+          commit-sha: ${{ inputs.commit-sha }}
           snapshot-output: axiom-pilot-snapshot.json
           # Still required even for a local action reference: install-axiom.sh downloads the
           # actual CLI release *asset* from Nandini1212/axiom's Releases, a separate private
